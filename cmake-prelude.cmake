@@ -4,6 +4,7 @@ function(add_library_targets name)
   set(one_value_keywords
     SHARED
     INSTALL
+    EXPORT
   )
 
   set(multi_value_keywords
@@ -44,6 +45,16 @@ function(add_library_targets name)
 
   if(NOT DEFINED ARGV_INSTALL)
     set(ARGV_INSTALL ON)
+  endif()
+
+  if(NOT DEFINED ARGV_EXPORT)
+    set(ARGV_EXPORT ON)
+  endif()
+
+  if(ARGV_EXPORT)
+    set(export EXPORT ${name})
+  else()
+    set(export)
   endif()
 
   if(NOT ARGV_BASE_DIRS)
@@ -117,11 +128,13 @@ function(add_library_targets name)
     if(ARGV_INSTALL)
       install(
         TARGETS ${name}_headers
-        EXPORT ${name}
+        ${export}
         FILE_SET HEADERS
       )
 
-      _prelude_add_to_package(${name} ${packages})
+      if(ARGV_EXPORT)
+        _prelude_add_to_package(${name} ${packages})
+      endif()
     endif()
 
     return()
@@ -243,9 +256,13 @@ function(add_library_targets name)
 
   install(
     TARGETS ${targets}
-    EXPORT ${name}
+    ${export}
     FILE_SET HEADERS
   )
+
+  if(NOT ARGV_EXPORT)
+    return()
+  endif()
 
   set_property(GLOBAL PROPERTY _prelude_${name}_libraries ON)
 
@@ -256,6 +273,7 @@ function(add_executable_target name)
   set(one_value_keywords
     TYPE
     INSTALL
+    EXPORT
     DESTINATION
     STRIP
     EXPORTS_FILE
@@ -288,6 +306,16 @@ function(add_executable_target name)
 
   if(NOT DEFINED ARGV_INSTALL)
     set(ARGV_INSTALL ON)
+  endif()
+
+  if(NOT DEFINED ARGV_EXPORT)
+    set(ARGV_EXPORT ON)
+  endif()
+
+  if(ARGV_EXPORT)
+    set(export EXPORT ${name})
+  else()
+    set(export)
   endif()
 
   if(NOT ARGV_DESTINATION)
@@ -404,11 +432,13 @@ function(add_executable_target name)
 
   install(
     TARGETS ${target}
-    EXPORT ${name}
+    ${export}
     RUNTIME DESTINATION "${ARGV_DESTINATION}"
   )
 
-  _prelude_add_to_package(${name})
+  if(ARGV_EXPORT)
+    _prelude_add_to_package(${name})
+  endif()
 endfunction()
 
 function(_prelude_export_symbols target)
