@@ -24,6 +24,20 @@ function(add_library_targets name)
     message(FATAL_ERROR "Unknown arguments: ${ARGV_UNPARSED_ARGUMENTS}")
   endif()
 
+  if(ARGV_SOURCES STREQUAL "NONE")
+    set(header_only ON)
+
+    foreach(keyword IN ITEMS STATIC_LINK SHARED_LINK SHARED)
+      if(DEFINED ARGV_${keyword})
+        message(FATAL_ERROR "${keyword} can't be used with SOURCES NONE")
+      endif()
+    endforeach()
+  elseif("NONE" IN_LIST ARGV_SOURCES)
+    message(FATAL_ERROR "SOURCES NONE can't be combined with other sources")
+  else()
+    set(header_only OFF)
+  endif()
+
   if(NOT DEFINED ARGV_SHARED)
     set(ARGV_SHARED ON)
   endif()
@@ -48,6 +62,10 @@ function(add_library_targets name)
 
   foreach(library IN LISTS ARGV_LINK)
     if(library MATCHES "^(.+)::<TYPE>$")
+      if(header_only)
+        message(FATAL_ERROR "${library} can't be used with SOURCES NONE, name the target to link instead")
+      endif()
+
       list(APPEND headers_link "${CMAKE_MATCH_1}::headers")
       list(APPEND static_link "${CMAKE_MATCH_1}::static")
       list(APPEND shared_link "${CMAKE_MATCH_1}::shared")
@@ -55,7 +73,7 @@ function(add_library_targets name)
     else()
       list(APPEND headers_link "${library}")
 
-      if(library MATCHES "^(.+)::headers$")
+      if(library MATCHES "^(.+)::(headers|static|shared)$")
         list(APPEND packages "${CMAKE_MATCH_1}")
       endif()
     endif()
@@ -92,6 +110,22 @@ function(add_library_targets name)
     INTERFACE
       ${headers_link}
   )
+
+  if(header_only)
+    add_library(${name} ALIAS ${name}_headers)
+
+    if(ARGV_INSTALL)
+      install(
+        TARGETS ${name}_headers
+        EXPORT ${name}
+        FILE_SET HEADERS
+      )
+
+      _prelude_add_to_package(${name} ${packages})
+    endif()
+
+    return()
+  endif()
 
   add_library(${name} OBJECT)
 
