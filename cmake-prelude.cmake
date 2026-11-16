@@ -102,13 +102,15 @@ function(add_library_targets name)
     PACKAGE_VERSION "${PROJECT_VERSION}"
   )
 
-  target_sources(
-    ${name}_headers
-    INTERFACE
-      FILE_SET HEADERS
-      BASE_DIRS ${ARGV_BASE_DIRS}
-      FILES ${ARGV_HEADERS}
-  )
+  if(ARGV_HEADERS)
+    target_sources(
+      ${name}_headers
+      INTERFACE
+        FILE_SET HEADERS
+        BASE_DIRS ${ARGV_BASE_DIRS}
+        FILES ${ARGV_HEADERS}
+    )
+  endif()
 
   target_compile_features(
     ${name}_headers
