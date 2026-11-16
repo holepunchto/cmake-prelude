@@ -43,7 +43,7 @@ Unless `INSTALL` is off, the executable is installed to `DESTINATION`, which def
 
 ### Packages
 
-Libraries and executables with the same name share a package, which is installed as `<name>-config.cmake` once the project's top-level directory has been processed. It exports the `<name>::` targets, finds the dependencies of the libraries, and takes its version from the project version.
+Libraries and executables with the same name share a package, which is installed as `<name>-config.cmake` once the project's top-level directory has been processed. It exports the `<name>::` targets, finds the dependencies of the libraries, and takes its version from the project version. Like the `^` range of npm, a requested version is compatible with newer versions up to the next change of its first non-zero component: `1.2` accepts `1.9.0` but not `2.0.0`, `0.2` accepts `0.2.9` but not `0.3.0`, and `0.0.3` accepts only `0.0.3`. Version ranges, such as `1.2...<3.0`, are taken as given.
 
 ## License
 
