@@ -1,7 +1,5 @@
 include_guard()
 
-include(CMakePackageConfigHelpers)
-
 function(add_library_targets name)
   set(one_value_keywords
     SHARED
@@ -214,6 +212,8 @@ function(add_library_targets name)
     EXPORT ${name}
     FILE_SET HEADERS
   )
+
+  set_property(GLOBAL PROPERTY _prelude_${name}_libraries ON)
 
   _prelude_add_to_package(${name} ${packages})
 endfunction()
@@ -490,9 +490,79 @@ function(_prelude_install_package package)
     CONTENT "${config}"
   )
 
-  write_basic_package_version_file(
-    ${package}-config-version.cmake
-    COMPATIBILITY SameMinorVersion
+  get_property(libraries GLOBAL PROPERTY _prelude_${package}_libraries)
+
+  if(libraries)
+    set(libraries ON)
+  else()
+    set(libraries OFF)
+  endif()
+
+  file(
+    CONFIGURE
+    OUTPUT ${package}-config-version.cmake
+    CONTENT [=[
+set(PACKAGE_VERSION "@PROJECT_VERSION@")
+
+if(PACKAGE_FIND_VERSION STREQUAL "")
+  set(PACKAGE_VERSION_COMPATIBLE TRUE)
+elseif(PACKAGE_FIND_VERSION_RANGE)
+  if(PACKAGE_VERSION VERSION_LESS PACKAGE_FIND_VERSION_MIN)
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+  elseif(PACKAGE_FIND_VERSION_RANGE_MAX STREQUAL "INCLUDE" AND PACKAGE_VERSION VERSION_GREATER PACKAGE_FIND_VERSION_MAX)
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+  elseif(PACKAGE_FIND_VERSION_RANGE_MAX STREQUAL "EXCLUDE" AND PACKAGE_VERSION VERSION_GREATER_EQUAL PACKAGE_FIND_VERSION_MAX)
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+  else()
+    set(PACKAGE_VERSION_COMPATIBLE TRUE)
+  endif()
+elseif(PACKAGE_VERSION VERSION_LESS PACKAGE_FIND_VERSION)
+  set(PACKAGE_VERSION_COMPATIBLE FALSE)
+else()
+  # Like the ^ range of npm, lock the requested components up to and including
+  # the first one that isn't zero.
+  set(PACKAGE_VERSION_COMPATIBLE TRUE)
+
+  string(REPLACE "." ";" components "${PACKAGE_VERSION}")
+
+  list(LENGTH components length)
+
+  set(index 0)
+
+  foreach(name IN ITEMS MAJOR MINOR PATCH TWEAK)
+    if(index EQUAL PACKAGE_FIND_VERSION_COUNT)
+      break()
+    endif()
+
+    set(component 0)
+
+    if(index LESS length)
+      list(GET components ${index} component)
+    endif()
+
+    if(NOT component EQUAL PACKAGE_FIND_VERSION_${name})
+      set(PACKAGE_VERSION_COMPATIBLE FALSE)
+      break()
+    endif()
+
+    if(NOT PACKAGE_FIND_VERSION_${name} EQUAL 0)
+      break()
+    endif()
+
+    math(EXPR index "${index} + 1")
+  endforeach()
+endif()
+
+if(PACKAGE_FIND_VERSION STREQUAL PACKAGE_VERSION)
+  set(PACKAGE_VERSION_EXACT TRUE)
+endif()
+
+# Libraries built for a different pointer size can't be linked.
+if(@libraries@ AND NOT CMAKE_SIZEOF_VOID_P STREQUAL "" AND NOT CMAKE_SIZEOF_VOID_P STREQUAL "@CMAKE_SIZEOF_VOID_P@")
+  set(PACKAGE_VERSION_UNSUITABLE TRUE)
+endif()
+]=]
+    @ONLY
   )
 
   install(
