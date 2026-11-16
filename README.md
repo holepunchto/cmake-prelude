@@ -14,7 +14,7 @@ find_package(cmake-prelude REQUIRED PATHS node_modules/cmake-prelude)
 
 Creates the targets of a library:
 
-- `<name>_headers`, aliased as `<name>::headers`, holds the public headers and compile features. `BASE_DIRS` defaults to `include`.
+- `<name>_headers`, aliased as `<name>::headers`, holds the public headers and compile features. `BASE_DIRS` defaults to `include`. Without `HEADERS`, no headers are added, so they can instead be added after the call with `target_sources(<name>_headers INTERFACE FILE_SET HEADERS ...)`, such as when they come from another project.
 - `<name>` is an object library that compiles the sources.
 - `<name>_static`, aliased as `<name>::static`, is a static library built from the objects of `<name>`.
 - `<name>_shared`, aliased as `<name>::shared`, is a shared library, created only when the platform supports shared libraries and `SHARED` isn't off.
