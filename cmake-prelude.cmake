@@ -21,10 +21,6 @@ function(add_library_targets name)
     PARSE_ARGV 1 ARGV "" "${one_value_keywords}" "${multi_value_keywords}"
   )
 
-  if(ARGV_UNPARSED_ARGUMENTS)
-    message(FATAL_ERROR "Unknown arguments: ${ARGV_UNPARSED_ARGUMENTS}")
-  endif()
-
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
 
@@ -474,10 +470,6 @@ function(add_executable_target name)
   cmake_parse_arguments(
     PARSE_ARGV 1 ARGV "" "${one_value_keywords}" "${multi_value_keywords}"
   )
-
-  if(ARGV_UNPARSED_ARGUMENTS)
-    message(FATAL_ERROR "Unknown arguments: ${ARGV_UNPARSED_ARGUMENTS}")
-  endif()
 
   include(GNUInstallDirs)
 
