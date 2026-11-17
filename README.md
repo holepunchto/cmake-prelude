@@ -10,7 +10,7 @@ find_package(cmake-prelude REQUIRED PATHS node_modules/cmake-prelude)
 
 ## API
 
-#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED...] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [INSTALL <bool>] [EXPORT <bool>])`
+#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED...] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [INSTALL <bool>] [EXPORT <bool>])`
 
 Creates the targets of a library:
 
@@ -44,11 +44,13 @@ Entries of the form `<package>::<TYPE>` link `<package>::static` or `<package>::
 
 `EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library.
 
+If `STRIP` is on, release builds of the shared library remove unused code and strip symbols that aren't exported. It's off by default, so that the symbols stay available to debuggers and crash reporters.
+
 To add a dependency after the call, such as one for a single platform, link it to `<name>_headers` with `target_link_libraries(<name>_headers INTERFACE ...)`, which reaches every target in the same way. Linking it to `<name>` instead would not reach the static and shared library.
 
 Unless `INSTALL` is off, the libraries and headers are installed, and unless `EXPORT` is also off, added to the `<name>` package. They are installed once the calling directory has been processed, so properties that change what gets installed, such as `ENABLE_EXPORTS`, can still be set after the call.
 
-For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then created, which `<name>` also refers to. `TYPE`, `EXPORTS`, `EXPORTS_FROM`, the `STATIC`, `SHARED`, `PRIVATE`, and `EMBED` keywords of `LINK`, and `<package>::<TYPE>` entries can't be used with it.
+For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then created, which `<name>` also refers to. `TYPE`, `EXPORTS`, `EXPORTS_FROM`, `STRIP`, the `STATIC`, `SHARED`, `PRIVATE`, and `EMBED` keywords of `LINK`, and `<package>::<TYPE>` entries can't be used with it.
 
 The shared library compiles the same sources as `<name>` and follows its compile definitions, compile options, include directories, and compile features, including those added after the call. Configure compilation on `<name>` with the usual `target_*()` commands, such as `harden(<name>)` from `cmake-harden`. Other target properties are not followed; use `FEATURES` to require a language standard.
 
