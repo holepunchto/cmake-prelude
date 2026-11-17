@@ -5,6 +5,7 @@ function(add_library_targets name)
     INSTALL
     EXPORT
     EXPORTS_FROM
+    STRIP
   )
 
   set(multi_value_keywords
@@ -24,7 +25,7 @@ function(add_library_targets name)
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
 
-    foreach(keyword IN ITEMS TYPE EXPORTS EXPORTS_FROM)
+    foreach(keyword IN ITEMS TYPE EXPORTS EXPORTS_FROM STRIP)
       if(DEFINED ARGV_${keyword})
         message(FATAL_ERROR "${keyword} can't be used with SOURCES NONE")
       endif()
@@ -409,6 +410,10 @@ function(add_library_targets name)
 
     _prelude_embed(${name}_shared ${shared_embed})
 
+    if(ARGV_STRIP)
+      _prelude_strip(${name}_shared)
+    endif()
+
     list(APPEND targets ${name}_shared)
   endif()
 
@@ -564,19 +569,7 @@ function(add_executable_target name)
   endif()
 
   if(ARGV_STRIP)
-    if(APPLE)
-      target_link_options(
-        ${target}
-        PRIVATE
-          $<$<CONFIG:Release,MinSizeRel>:-Wl,-dead_strip,-S,-x>
-      )
-    elseif(NOT WIN32)
-      target_link_options(
-        ${target}
-        PRIVATE
-          $<$<CONFIG:Release,MinSizeRel>:-Wl,--gc-sections,--strip-all>
-      )
-    endif()
+    _prelude_strip(${target})
   endif()
 
   if(ARGV_RPATH AND shared AND NOT WIN32)
@@ -625,6 +618,23 @@ function(add_executable_target name)
 
   if(ARGV_EXPORT)
     _prelude_add_to_package(${name})
+  endif()
+endfunction()
+
+# Removes unused code and the symbols that aren't exported from release builds.
+function(_prelude_strip target)
+  if(APPLE)
+    target_link_options(
+      ${target}
+      PRIVATE
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,-dead_strip,-S,-x>
+    )
+  elseif(NOT WIN32)
+    target_link_options(
+      ${target}
+      PRIVATE
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,--gc-sections,--strip-all>
+    )
   endif()
 endfunction()
 
