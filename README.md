@@ -10,7 +10,7 @@ find_package(cmake-prelude REQUIRED PATHS node_modules/cmake-prelude)
 
 ## API
 
-#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED...] [INSTALL <bool>] [EXPORT <bool>])`
+#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED...] [EXPORTS <symbols>...] [EXPORTS_FILE <path>] [INSTALL <bool>] [EXPORT <bool>])`
 
 Creates the targets of a library:
 
@@ -23,7 +23,7 @@ Creates the targets of a library:
 
 Symbols are hidden by default. The shared library is compiled with `<NAME>_BUILDING` defined, and its consumers see `<NAME>_SHARED`, where `<NAME>` is the upper case name of the library. Public headers use these to mark exported symbols.
 
-`LINK` entries are linked with a type and a scope, which the keywords `STATIC` or `SHARED`, and `PUBLIC`, `PRIVATE`, or `INTERFACE`, set for the entries that follow them. Each run of keywords starts over from both libraries and `PUBLIC`:
+`LINK` entries are linked with a type and a scope, which the keywords `STATIC` or `SHARED`, and `PUBLIC`, `PRIVATE`, `INTERFACE`, or `EMBED`, set for the entries that follow them. Each run of keywords starts over from both libraries and `PUBLIC`:
 
 ```cmake
 LINK
@@ -38,13 +38,17 @@ LINK
 
 The scopes work like those of `target_link_libraries()`. `PUBLIC` entries for both libraries are linked to `<name>::headers`, which every target links. `PRIVATE` entries are linked to `<name>`, to compile it, and to the libraries, but not to their consumers, except as link dependencies of the static library. `INTERFACE` entries are linked to the consumers of the libraries only. Entries for one library type only reach that library, and `<name>` if it's the static library, as that library is built from the objects of `<name>`. Entries for a library that isn't created are left out.
 
+`EMBED` entries name targets whose objects are built into the libraries, such as object libraries, or static libraries that should not be installed alongside. The libraries are compiled with their compile settings and linked with their link dependencies, which the static library passes on to its consumers. The targets must exist when `add_library_targets()` is called, and don't become dependencies of the installed package.
+
 Entries of the form `<package>::<TYPE>` link `<package>::static` or `<package>::shared` to the matching library, and `<package>::headers` wherever headers are needed. Entries of the form `<package>::headers` are header-only dependencies. Use `$<COMPILE_ONLY:<target>>` for header-only dependencies that don't follow the `<package>::headers` convention. All entries that name a `<package>::` target become dependencies of the installed package, which requires a version of each dependency compatible with the one it was built against.
+
+`EXPORTS` and `EXPORTS_FILE`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library.
 
 To add a dependency after the call, such as one for a single platform, link it to `<name>_headers` with `target_link_libraries(<name>_headers INTERFACE ...)`, which reaches every target in the same way. Linking it to `<name>` instead would not reach the static and shared library.
 
 Unless `INSTALL` is off, the libraries and headers are installed, and unless `EXPORT` is also off, added to the `<name>` package. They are installed once the calling directory has been processed, so properties that change what gets installed, such as `ENABLE_EXPORTS`, can still be set after the call.
 
-For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then created, which `<name>` also refers to. `TYPE`, the `STATIC`, `SHARED`, and `PRIVATE` keywords of `LINK`, and `<package>::<TYPE>` entries can't be used with it.
+For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then created, which `<name>` also refers to. `TYPE`, `EXPORTS`, `EXPORTS_FILE`, the `STATIC`, `SHARED`, `PRIVATE`, and `EMBED` keywords of `LINK`, and `<package>::<TYPE>` entries can't be used with it.
 
 The shared library compiles the same sources as `<name>` and follows its compile definitions, compile options, include directories, and compile features, including those added after the call. Configure compilation on `<name>` with the usual `target_*()` commands, such as `harden(<name>)` from `cmake-harden`. Other target properties are not followed; use `FEATURES` to require a language standard.
 
@@ -56,7 +60,7 @@ Creates `<name>_executable`, aliased as `<name>::executable`, with the output na
 
 `LINK` entries of the form `<package>::<TYPE>` link `<package>::static`, or `<package>::shared` if `TYPE` is `SHARED`.
 
-`EXPORTS` and `EXPORTS_FILE`, a file with one symbol per line, list the symbols the executable exports, such as those used by native addons it loads at runtime. Other symbols are not exported.
+`EXPORTS` and `EXPORTS_FILE`, a JSON array of strings or a file with one symbol per line, list the symbols the executable exports, such as those used by native addons it loads at runtime. Other symbols are not exported.
 
 Unless `STRIP` is off, release builds remove unused code and strip symbols that aren't exported.
 

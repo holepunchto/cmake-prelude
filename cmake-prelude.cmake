@@ -4,6 +4,7 @@ function(add_library_targets name)
   set(one_value_keywords
     INSTALL
     EXPORT
+    EXPORTS_FILE
   )
 
   set(multi_value_keywords
@@ -13,6 +14,7 @@ function(add_library_targets name)
     FEATURES
     LINK
     TYPE
+    EXPORTS
   )
 
   cmake_parse_arguments(
@@ -26,9 +28,11 @@ function(add_library_targets name)
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
 
-    if(DEFINED ARGV_TYPE)
-      message(FATAL_ERROR "TYPE can't be used with SOURCES NONE")
-    endif()
+    foreach(keyword IN ITEMS TYPE EXPORTS EXPORTS_FILE)
+      if(DEFINED ARGV_${keyword})
+        message(FATAL_ERROR "${keyword} can't be used with SOURCES NONE")
+      endif()
+    endforeach()
   elseif("NONE" IN_LIST ARGV_SOURCES)
     message(FATAL_ERROR "SOURCES NONE can't be combined with other sources")
   else()
@@ -92,6 +96,8 @@ function(add_library_targets name)
     foreach(scope IN ITEMS public private interface)
       set(${type}_${scope}_link)
     endforeach()
+
+    set(${type}_embed)
   endforeach()
 
   # A run of keywords sets the type and scope of the entries that follow it,
@@ -101,7 +107,7 @@ function(add_library_targets name)
   set(link_scope)
 
   foreach(library IN LISTS ARGV_LINK)
-    if(library MATCHES "^(PUBLIC|PRIVATE|INTERFACE)$")
+    if(library MATCHES "^(PUBLIC|PRIVATE|INTERFACE|EMBED)$")
       if(NOT keywords)
         set(keywords ON)
         set(link_type)
@@ -146,8 +152,8 @@ function(add_library_targets name)
         message(FATAL_ERROR "${link_type} can't be used with SOURCES NONE")
       endif()
 
-      if(scope STREQUAL "private")
-        message(FATAL_ERROR "PRIVATE can't be used with SOURCES NONE")
+      if(scope MATCHES "^(private|embed)$")
+        message(FATAL_ERROR "${link_scope} can't be used with SOURCES NONE")
       endif()
 
       if(library MATCHES "^(.+)::<TYPE>$")
@@ -158,6 +164,28 @@ function(add_library_targets name)
 
       if(library MATCHES "^(.+)::(headers|static|shared)$")
         list(APPEND packages "${CMAKE_MATCH_1}")
+      endif()
+
+      continue()
+    endif()
+
+    if(link_type)
+      string(TOLOWER "${link_type}" link_types)
+    else()
+      set(link_types static shared)
+    endif()
+
+    if(scope STREQUAL "embed")
+      if(library MATCHES "::<TYPE>$")
+        message(FATAL_ERROR "${library} can't be embedded, name the target to embed instead")
+      endif()
+
+      foreach(type IN LISTS link_types)
+        list(APPEND ${type}_embed "${library}")
+      endforeach()
+
+      if("static" IN_LIST link_types)
+        list(APPEND object_link "$<COMPILE_ONLY:${library}>")
       endif()
 
       continue()
@@ -177,12 +205,6 @@ function(add_library_targets name)
       if(library MATCHES "^(.+)::(headers|static|shared)$")
         list(APPEND packages "${CMAKE_MATCH_1}")
       endif()
-    endif()
-
-    if(link_type)
-      string(TOLOWER "${link_type}" link_types)
-    else()
-      set(link_types static shared)
     endif()
 
     if(scope STREQUAL "public" AND NOT link_type)
@@ -325,6 +347,8 @@ function(add_library_targets name)
         ${static_interface_link}
     )
 
+    _prelude_embed(${name}_static ${static_embed})
+
     list(APPEND targets ${name}_static)
   endif()
 
@@ -387,7 +411,27 @@ function(add_library_targets name)
         ${shared_interface_link}
     )
 
+    _prelude_embed(${name}_shared ${shared_embed})
+
     list(APPEND targets ${name}_shared)
+  endif()
+
+  if(ARGV_EXPORTS_FILE)
+    _prelude_read_exports("${ARGV_EXPORTS_FILE}" symbols)
+
+    list(APPEND ARGV_EXPORTS ${symbols})
+  endif()
+
+  if(ARGV_EXPORTS)
+    _prelude_add_exports_target(${name} ${ARGV_EXPORTS})
+
+    if("shared" IN_LIST types)
+      target_link_libraries(
+        ${name}_shared
+        PRIVATE
+          ${name}_exports
+      )
+    endif()
   endif()
 
   if(NOT ARGV_INSTALL)
@@ -473,13 +517,9 @@ function(add_executable_target name)
   endif()
 
   if(ARGV_EXPORTS_FILE)
-    cmake_path(ABSOLUTE_PATH ARGV_EXPORTS_FILE NORMALIZE)
-
-    file(STRINGS "${ARGV_EXPORTS_FILE}" symbols)
+    _prelude_read_exports("${ARGV_EXPORTS_FILE}" symbols)
 
     list(APPEND ARGV_EXPORTS ${symbols})
-
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ARGV_EXPORTS_FILE}")
   endif()
 
   string(TOLOWER "${ARGV_TYPE}" type)
@@ -605,6 +645,140 @@ function(_prelude_install_targets)
   endforeach()
 
   cmake_language(EVAL CODE "cmake_language(DEFER CALL install TARGETS${arguments})")
+endfunction()
+
+# Builds the objects of each target into the library, along with the link
+# dependencies they need. The dependencies are read when the library is
+# created, so that an installed package names them instead of the embedded
+# target. A shared library also compiles its own sources, so it needs the
+# compile settings of each target as well.
+function(_prelude_embed library)
+  get_target_property(type ${library} TYPE)
+
+  foreach(target IN LISTS ARGN)
+    if(NOT TARGET ${target})
+      message(FATAL_ERROR "${target} must be created before it's embedded")
+    endif()
+
+    get_target_property(dependencies ${target} INTERFACE_LINK_LIBRARIES)
+
+    if(NOT dependencies)
+      set(dependencies)
+    endif()
+
+    target_sources(
+      ${library}
+      PRIVATE
+        $<TARGET_OBJECTS:${target}>
+    )
+
+    target_link_libraries(
+      ${library}
+      PRIVATE
+        ${dependencies}
+    )
+
+    if(type STREQUAL "SHARED_LIBRARY")
+      target_link_libraries(
+        ${library}
+        PRIVATE
+          $<COMPILE_ONLY:${target}>
+      )
+    endif()
+  endforeach()
+endfunction()
+
+# Reads a list of symbols from a JSON array of strings, or from a file with one
+# symbol per line.
+function(_prelude_read_exports file result)
+  cmake_path(ABSOLUTE_PATH file NORMALIZE)
+
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${file}")
+
+  if(file MATCHES "\\.json$")
+    file(READ "${file}" json)
+
+    string(JSON length LENGTH "${json}")
+
+    set(symbols)
+
+    if(length GREATER 0)
+      math(EXPR last "${length} - 1")
+
+      foreach(i RANGE ${last})
+        string(JSON symbol GET "${json}" ${i})
+
+        list(APPEND symbols "${symbol}")
+      endforeach()
+    endif()
+  else()
+    file(STRINGS "${file}" symbols)
+  endif()
+
+  set(${result} ${symbols} PARENT_SCOPE)
+endfunction()
+
+# Creates an interface target that limits the exports of whatever links it to
+# the given symbols.
+function(_prelude_add_exports_target name)
+  set(target ${name}_exports)
+  set(symbols ${ARGN})
+
+  add_library(${target} INTERFACE)
+
+  add_library(${name}::exports ALIAS ${target})
+
+  set(file "${CMAKE_CURRENT_BINARY_DIR}/${name}")
+
+  if(WIN32)
+    set(file "${file}.def")
+
+    list(JOIN symbols "\n  " symbols)
+
+    file(CONFIGURE OUTPUT "${file}" CONTENT "EXPORTS\n  ${symbols}\n" @ONLY)
+
+    target_sources(
+      ${target}
+      INTERFACE
+        "${file}"
+    )
+  elseif(APPLE)
+    set(file "${file}.exp")
+
+    list(TRANSFORM symbols PREPEND "_")
+    list(JOIN symbols "\n" symbols)
+
+    file(CONFIGURE OUTPUT "${file}" CONTENT "${symbols}\n" @ONLY)
+
+    target_link_options(
+      ${target}
+      INTERFACE
+        "-Wl,-exported_symbols_list,${file}"
+    )
+  else()
+    list(JOIN symbols ";\n    " symbols)
+
+    # Shared libraries hide everything else with a version script, while
+    # executables only export what a dynamic list names.
+    file(CONFIGURE OUTPUT "${file}.map" CONTENT "{\n  global:\n    ${symbols};\n\n  local:\n    *;\n};\n" @ONLY)
+    file(CONFIGURE OUTPUT "${file}.dynamic" CONTENT "{\n    ${symbols};\n};\n" @ONLY)
+
+    set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
+
+    set(file "$<IF:${executable},${file}.dynamic,${file}.map>")
+
+    target_link_options(
+      ${target}
+      INTERFACE
+        "$<IF:${executable},-Wl$<COMMA>--dynamic-list=,-Wl$<COMMA>--version-script=>${file}"
+    )
+  endif()
+
+  set_target_properties(
+    ${target}
+    PROPERTIES
+    INTERFACE_LINK_DEPENDS "${file}"
+  )
 endfunction()
 
 function(_prelude_export_symbols target)
