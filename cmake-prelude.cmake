@@ -4,7 +4,7 @@ function(add_library_targets name)
   set(one_value_keywords
     INSTALL
     EXPORT
-    EXPORTS_FILE
+    EXPORTS_FROM
   )
 
   set(multi_value_keywords
@@ -24,7 +24,7 @@ function(add_library_targets name)
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
 
-    foreach(keyword IN ITEMS TYPE EXPORTS EXPORTS_FILE)
+    foreach(keyword IN ITEMS TYPE EXPORTS EXPORTS_FROM)
       if(DEFINED ARGV_${keyword})
         message(FATAL_ERROR "${keyword} can't be used with SOURCES NONE")
       endif()
@@ -412,8 +412,8 @@ function(add_library_targets name)
     list(APPEND targets ${name}_shared)
   endif()
 
-  if(ARGV_EXPORTS_FILE)
-    _prelude_read_exports("${ARGV_EXPORTS_FILE}" symbols)
+  if(ARGV_EXPORTS_FROM)
+    _prelude_read_exports("${ARGV_EXPORTS_FROM}" symbols)
 
     list(APPEND ARGV_EXPORTS ${symbols})
   endif()
@@ -457,7 +457,7 @@ function(add_executable_target name)
     DESTINATION
     OUTPUT_DIRECTORY
     STRIP
-    EXPORTS_FILE
+    EXPORTS_FROM
   )
 
   set(multi_value_keywords
@@ -508,8 +508,8 @@ function(add_executable_target name)
     cmake_path(RELATIVE_PATH CMAKE_INSTALL_FULL_LIBDIR BASE_DIRECTORY "${destination}" OUTPUT_VARIABLE ARGV_RPATH)
   endif()
 
-  if(ARGV_EXPORTS_FILE)
-    _prelude_read_exports("${ARGV_EXPORTS_FILE}" symbols)
+  if(ARGV_EXPORTS_FROM)
+    _prelude_read_exports("${ARGV_EXPORTS_FROM}" symbols)
 
     list(APPEND ARGV_EXPORTS ${symbols})
   endif()
