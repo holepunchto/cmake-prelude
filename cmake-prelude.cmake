@@ -2,7 +2,6 @@ include_guard()
 
 function(add_library_targets name)
   set(one_value_keywords
-    SHARED
     INSTALL
     EXPORT
   )
@@ -13,8 +12,7 @@ function(add_library_targets name)
     SOURCES
     FEATURES
     LINK
-    STATIC_LINK
-    SHARED_LINK
+    TYPE
   )
 
   cmake_parse_arguments(
@@ -28,20 +26,24 @@ function(add_library_targets name)
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
 
-    foreach(keyword IN ITEMS STATIC_LINK SHARED_LINK SHARED)
-      if(DEFINED ARGV_${keyword})
-        message(FATAL_ERROR "${keyword} can't be used with SOURCES NONE")
-      endif()
-    endforeach()
+    if(DEFINED ARGV_TYPE)
+      message(FATAL_ERROR "TYPE can't be used with SOURCES NONE")
+    endif()
   elseif("NONE" IN_LIST ARGV_SOURCES)
     message(FATAL_ERROR "SOURCES NONE can't be combined with other sources")
   else()
     set(header_only OFF)
   endif()
 
-  if(NOT DEFINED ARGV_SHARED)
-    set(ARGV_SHARED ON)
+  if(NOT DEFINED ARGV_TYPE)
+    set(ARGV_TYPE STATIC SHARED)
   endif()
+
+  foreach(type IN LISTS ARGV_TYPE)
+    if(NOT type MATCHES "^(STATIC|SHARED)$")
+      message(FATAL_ERROR "Unknown type: ${type}")
+    endif()
+  endforeach()
 
   if(NOT DEFINED ARGV_INSTALL)
     set(ARGV_INSTALL ON)
@@ -63,31 +65,145 @@ function(add_library_targets name)
 
   get_property(shared GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS)
 
+  set(types)
+
+  if(NOT header_only)
+    if("STATIC" IN_LIST ARGV_TYPE)
+      list(APPEND types static)
+    endif()
+
+    if("SHARED" IN_LIST ARGV_TYPE)
+      if(shared)
+        list(APPEND types shared)
+      elseif(NOT "STATIC" IN_LIST ARGV_TYPE)
+        message(FATAL_ERROR "Shared libraries aren't supported by the target platform")
+      endif()
+    endif()
+  endif()
+
   string(MAKE_C_IDENTIFIER "${name}" macro)
   string(TOUPPER "${macro}" macro)
 
   set(headers_link)
-  set(static_link)
-  set(shared_link)
+  set(object_link)
   set(packages)
 
+  foreach(type IN ITEMS static shared)
+    foreach(scope IN ITEMS public private interface)
+      set(${type}_${scope}_link)
+    endforeach()
+  endforeach()
+
+  # A run of keywords sets the type and scope of the entries that follow it,
+  # starting from both types and PUBLIC.
+  set(keywords OFF)
+  set(link_type)
+  set(link_scope)
+
   foreach(library IN LISTS ARGV_LINK)
-    if(library MATCHES "^(.+)::<TYPE>$")
-      if(header_only)
+    if(library MATCHES "^(PUBLIC|PRIVATE|INTERFACE)$")
+      if(NOT keywords)
+        set(keywords ON)
+        set(link_type)
+        set(link_scope)
+      endif()
+
+      if(link_scope)
+        message(FATAL_ERROR "${library} can't follow ${link_scope}")
+      endif()
+
+      set(link_scope ${library})
+
+      continue()
+    endif()
+
+    if(library MATCHES "^(STATIC|SHARED)$")
+      if(NOT keywords)
+        set(keywords ON)
+        set(link_type)
+        set(link_scope)
+      endif()
+
+      if(link_type)
+        message(FATAL_ERROR "${library} can't follow ${link_type}")
+      endif()
+
+      set(link_type ${library})
+
+      continue()
+    endif()
+
+    set(keywords OFF)
+
+    if(NOT link_scope)
+      set(scope public)
+    else()
+      string(TOLOWER "${link_scope}" scope)
+    endif()
+
+    if(header_only)
+      if(link_type)
+        message(FATAL_ERROR "${link_type} can't be used with SOURCES NONE")
+      endif()
+
+      if(scope STREQUAL "private")
+        message(FATAL_ERROR "PRIVATE can't be used with SOURCES NONE")
+      endif()
+
+      if(library MATCHES "^(.+)::<TYPE>$")
         message(FATAL_ERROR "${library} can't be used with SOURCES NONE, name the target to link instead")
       endif()
 
-      list(APPEND headers_link "${CMAKE_MATCH_1}::headers")
-      list(APPEND static_link "${CMAKE_MATCH_1}::static")
-      list(APPEND shared_link "${CMAKE_MATCH_1}::shared")
-      list(APPEND packages "${CMAKE_MATCH_1}")
-    else()
       list(APPEND headers_link "${library}")
 
       if(library MATCHES "^(.+)::(headers|static|shared)$")
         list(APPEND packages "${CMAKE_MATCH_1}")
       endif()
+
+      continue()
     endif()
+
+    if(library MATCHES "^(.+)::<TYPE>$")
+      set(package "${CMAKE_MATCH_1}")
+      set(compile "${package}::headers")
+      set(typed ON)
+
+      list(APPEND packages "${package}")
+    else()
+      set(package)
+      set(compile "${library}")
+      set(typed OFF)
+
+      if(library MATCHES "^(.+)::(headers|static|shared)$")
+        list(APPEND packages "${CMAKE_MATCH_1}")
+      endif()
+    endif()
+
+    if(link_type)
+      string(TOLOWER "${link_type}" link_types)
+    else()
+      set(link_types static shared)
+    endif()
+
+    if(scope STREQUAL "public" AND NOT link_type)
+      list(APPEND headers_link "${compile}")
+    elseif(NOT scope STREQUAL "interface" AND "static" IN_LIST link_types)
+      list(APPEND object_link "${compile}")
+    endif()
+
+    foreach(type IN LISTS link_types)
+      if(typed)
+        set(target "${package}::${type}")
+      else()
+        set(target "${library}")
+      endif()
+
+      if(scope STREQUAL "public" AND NOT link_type AND NOT typed)
+        continue()
+      endif()
+
+      list(APPEND ${type}_${scope}_link "${target}")
+    endforeach()
   endforeach()
 
   add_library(${name}_headers INTERFACE)
@@ -128,8 +244,8 @@ function(add_library_targets name)
     add_library(${name} ALIAS ${name}_headers)
 
     if(ARGV_INSTALL)
-      install(
-        TARGETS ${name}_headers
+      _prelude_install_targets(
+        ${name}_headers
         ${export}
         FILE_SET HEADERS
       )
@@ -153,6 +269,16 @@ function(add_library_targets name)
     POSITION_INDEPENDENT_CODE ${shared}
   )
 
+  # Without a static library, the object library only holds the settings that
+  # the shared library follows, so there's nothing to build.
+  if(NOT "static" IN_LIST types)
+    set_target_properties(
+      ${name}
+      PROPERTIES
+      EXCLUDE_FROM_ALL ON
+    )
+  endif()
+
   target_sources(
     ${name}
     PRIVATE
@@ -163,37 +289,46 @@ function(add_library_targets name)
     ${name}
     PUBLIC
       ${name}_headers
-  )
-
-  add_library(${name}_static STATIC)
-
-  add_library(${name}::static ALIAS ${name}_static)
-
-  set_target_properties(
-    ${name}_static
-    PROPERTIES
-    OUTPUT_NAME ${name}
-    EXPORT_NAME static
-    PREFIX lib
-  )
-
-  target_sources(
-    ${name}_static
     PRIVATE
-      $<TARGET_OBJECTS:${name}>
+      ${object_link}
   )
 
-  target_link_libraries(
-    ${name}_static
-    PUBLIC
-      ${name}_headers
-      ${static_link}
-      ${ARGV_STATIC_LINK}
-  )
+  set(targets ${name}_headers)
 
-  set(targets ${name}_headers ${name}_static)
+  if("static" IN_LIST types)
+    add_library(${name}_static STATIC)
 
-  if(ARGV_SHARED AND shared)
+    add_library(${name}::static ALIAS ${name}_static)
+
+    set_target_properties(
+      ${name}_static
+      PROPERTIES
+      OUTPUT_NAME ${name}
+      EXPORT_NAME static
+      PREFIX lib
+    )
+
+    target_sources(
+      ${name}_static
+      PRIVATE
+        $<TARGET_OBJECTS:${name}>
+    )
+
+    target_link_libraries(
+      ${name}_static
+      PUBLIC
+        ${name}_headers
+        ${static_public_link}
+      PRIVATE
+        ${static_private_link}
+      INTERFACE
+        ${static_interface_link}
+    )
+
+    list(APPEND targets ${name}_static)
+  endif()
+
+  if("shared" IN_LIST types)
     add_library(${name}_shared SHARED)
 
     add_library(${name}::shared ALIAS ${name}_shared)
@@ -245,8 +380,11 @@ function(add_library_targets name)
       ${name}_shared
       PUBLIC
         ${name}_headers
-        ${shared_link}
-        ${ARGV_SHARED_LINK}
+        ${shared_public_link}
+      PRIVATE
+        ${shared_private_link}
+      INTERFACE
+        ${shared_interface_link}
     )
 
     list(APPEND targets ${name}_shared)
@@ -256,8 +394,8 @@ function(add_library_targets name)
     return()
   endif()
 
-  install(
-    TARGETS ${targets}
+  _prelude_install_targets(
+    ${targets}
     ${export}
     FILE_SET HEADERS
   )
@@ -277,6 +415,7 @@ function(add_executable_target name)
     INSTALL
     EXPORT
     DESTINATION
+    OUTPUT_DIRECTORY
     STRIP
     EXPORTS_FILE
   )
@@ -360,6 +499,16 @@ function(add_executable_target name)
     EXPORT_NAME executable
   )
 
+  if(ARGV_OUTPUT_DIRECTORY)
+    cmake_path(ABSOLUTE_PATH ARGV_OUTPUT_DIRECTORY BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" NORMALIZE)
+
+    set_target_properties(
+      ${target}
+      PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${ARGV_OUTPUT_DIRECTORY}"
+    )
+  endif()
+
   target_sources(
     ${target}
     PRIVATE
@@ -432,8 +581,8 @@ function(add_executable_target name)
     return()
   endif()
 
-  install(
-    TARGETS ${target}
+  _prelude_install_targets(
+    ${target}
     ${export}
     RUNTIME DESTINATION "${ARGV_DESTINATION}"
   )
@@ -441,6 +590,21 @@ function(add_executable_target name)
   if(ARGV_EXPORT)
     _prelude_add_to_package(${name})
   endif()
+endfunction()
+
+# Install the targets once the calling directory is processed, as install() only
+# considers the properties that the targets have when it's called. Properties
+# set after creating the targets, such as ENABLE_EXPORTS, are then respected.
+function(_prelude_install_targets)
+  set(arguments)
+
+  # Deferred calls only evaluate their arguments once they run, so pass them
+  # as bracket arguments evaluated now.
+  foreach(argument IN LISTS ARGN)
+    string(APPEND arguments " [==[${argument}]==]")
+  endforeach()
+
+  cmake_language(EVAL CODE "cmake_language(DEFER CALL install TARGETS${arguments})")
 endfunction()
 
 function(_prelude_export_symbols target)
