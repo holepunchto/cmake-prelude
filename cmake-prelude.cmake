@@ -739,30 +739,31 @@ function(_prelude_add_exports_target name)
   set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
 
   if(WIN32)
-    set(file "${file}.def")
-
     set(options ${symbols})
 
-    list(TRANSFORM options PREPEND "$<${executable}:LINKER:/EXPORT:")
-    list(TRANSFORM options APPEND ">")
-
+    list(TRANSFORM options PREPEND "/EXPORT:")
+    list(JOIN options "\n" options)
     list(JOIN symbols "\n  " symbols)
 
-    file(CONFIGURE OUTPUT "${file}" CONTENT "EXPORTS\n  ${symbols}\n" @ONLY)
+    file(CONFIGURE OUTPUT "${file}.def" CONTENT "EXPORTS\n  ${symbols}\n" @ONLY)
+    file(CONFIGURE OUTPUT "${file}.rsp" CONTENT "${options}\n" @ONLY)
 
     # CMake only applies module definition files to executables that have
-    # ENABLE_EXPORTS, so executables are given the exports as linker options.
+    # ENABLE_EXPORTS, so executables are given the exports as linker options
+    # instead, read from a response file to keep the command line short.
     target_sources(
       ${target}
       INTERFACE
-        "$<$<NOT:${executable}>:${file}>"
+        "$<$<NOT:${executable}>:${file}.def>"
     )
 
     target_link_options(
       ${target}
       INTERFACE
-        ${options}
+        "$<${executable}:@${file}.rsp>"
     )
+
+    set(file "$<IF:${executable},${file}.rsp,${file}.def>")
   elseif(APPLE)
     set(file "${file}.exp")
 
