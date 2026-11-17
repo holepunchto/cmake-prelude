@@ -736,17 +736,32 @@ function(_prelude_add_exports_target name)
 
   set(file "${CMAKE_CURRENT_BINARY_DIR}/${name}")
 
+  set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
+
   if(WIN32)
     set(file "${file}.def")
+
+    set(options ${symbols})
+
+    list(TRANSFORM options PREPEND "$<${executable}:LINKER:/EXPORT:")
+    list(TRANSFORM options APPEND ">")
 
     list(JOIN symbols "\n  " symbols)
 
     file(CONFIGURE OUTPUT "${file}" CONTENT "EXPORTS\n  ${symbols}\n" @ONLY)
 
+    # CMake only applies module definition files to executables that have
+    # ENABLE_EXPORTS, so executables are given the exports as linker options.
     target_sources(
       ${target}
       INTERFACE
-        "${file}"
+        "$<$<NOT:${executable}>:${file}>"
+    )
+
+    target_link_options(
+      ${target}
+      INTERFACE
+        ${options}
     )
   elseif(APPLE)
     set(file "${file}.exp")
@@ -768,8 +783,6 @@ function(_prelude_add_exports_target name)
     # executables only export what a dynamic list names.
     file(CONFIGURE OUTPUT "${file}.map" CONTENT "{\n  global:\n    ${symbols};\n\n  local:\n    *;\n};\n" @ONLY)
     file(CONFIGURE OUTPUT "${file}.dynamic" CONTENT "{\n    ${symbols};\n};\n" @ONLY)
-
-    set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
 
     set(file "$<IF:${executable},${file}.dynamic,${file}.map>")
 
