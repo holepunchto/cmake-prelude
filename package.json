@@ -1,6 +1,6 @@
 {
   "name": "cmake-prelude",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Common CMake patterns for Holepunch projects",
   "files": [
     "*.cmake"
