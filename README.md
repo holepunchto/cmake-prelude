@@ -56,7 +56,7 @@ The shared library compiles the same sources as `<name>` and follows its compile
 
 Creates `<name>_executable`, aliased as `<name>::executable`, with the output name `<name>`.
 
-`OUTPUT_DIRECTORY` sets where the executable is built, relative to the current build directory. Ninja names a build target after every target, so an executable built in the same directory as a target named `<name>`, such as the object library of `add_library_targets(<name>)`, collides with it. Build the executable in another directory, such as `bin`, or create it from a subdirectory.
+`OUTPUT_DIRECTORY` sets where the executable is built, along with its import library if it has exports, relative to the current build directory. Ninja names a build target after every target, so an executable built in the same directory as a target named `<name>`, such as the object library of `add_library_targets(<name>)`, collides with it. Build the executable in another directory, such as `bin`, or create it from a subdirectory.
 
 `LINK` entries of the form `<package>::<TYPE>` link `<package>::static`, or `<package>::shared` if `TYPE` is `SHARED`.
 

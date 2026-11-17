@@ -534,10 +534,14 @@ function(add_executable_target name)
   if(ARGV_OUTPUT_DIRECTORY)
     cmake_path(ABSOLUTE_PATH ARGV_OUTPUT_DIRECTORY BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" NORMALIZE)
 
+    # The import library of an executable with exports is an archive rather
+    # than a runtime file, so it needs moving too to not collide with that of a
+    # library of the same name.
     set_target_properties(
       ${target}
       PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY "${ARGV_OUTPUT_DIRECTORY}"
+      ARCHIVE_OUTPUT_DIRECTORY "${ARGV_OUTPUT_DIRECTORY}"
     )
   endif()
 
