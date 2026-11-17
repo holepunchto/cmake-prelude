@@ -359,6 +359,7 @@ function(add_library_targets name)
       PROPERTIES
       OUTPUT_NAME ${name}
       EXPORT_NAME shared
+      ENABLE_EXPORTS ON
       C_VISIBILITY_PRESET hidden
       CXX_VISIBILITY_PRESET hidden
       VISIBILITY_INLINES_HIDDEN ON

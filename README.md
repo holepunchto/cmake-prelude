@@ -21,7 +21,7 @@ Creates the targets of a library:
 
 `TYPE` lists the libraries to create and defaults to `STATIC SHARED`. On platforms without shared libraries, the shared library is left out, unless `TYPE` asks for only a shared library, which is then an error.
 
-Symbols are hidden by default. The shared library is compiled with `<NAME>_BUILDING` defined, and its consumers see `<NAME>_SHARED`, where `<NAME>` is the upper case name of the library. Public headers use these to mark exported symbols.
+Symbols are hidden by default, and the shared library has `ENABLE_EXPORTS` on, so that Apple platforms also generate a `.tbd` text stub to link against. The shared library is compiled with `<NAME>_BUILDING` defined, and its consumers see `<NAME>_SHARED`, where `<NAME>` is the upper case name of the library. Public headers use these to mark exported symbols.
 
 `LINK` entries are linked with a type and a scope, which the keywords `STATIC` or `SHARED`, and `PUBLIC`, `PRIVATE`, `INTERFACE`, or `EMBED`, set for the entries that follow them. Each run of keywords starts over from both libraries and `PUBLIC`:
 
