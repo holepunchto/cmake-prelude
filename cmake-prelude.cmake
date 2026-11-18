@@ -411,6 +411,8 @@ function(add_library_targets name)
 
     _prelude_embed(${name}_shared ${shared_embed})
 
+    _prelude_remove_unused_code(${name}_shared)
+
     if(ARGV_STRIP)
       _prelude_strip(${name}_shared)
     endif()
@@ -569,6 +571,8 @@ function(add_executable_target name)
     _prelude_export_symbols(${target} ${ARGV_EXPORTS})
   endif()
 
+  _prelude_remove_unused_code(${target})
+
   if(ARGV_STRIP)
     _prelude_strip(${target})
   endif()
@@ -622,19 +626,36 @@ function(add_executable_target name)
   endif()
 endfunction()
 
-# Removes unused code and the symbols that aren't exported from release builds.
-function(_prelude_strip target)
+# Removes code that nothing exported reaches from release builds.
+function(_prelude_remove_unused_code target)
   if(APPLE)
     target_link_options(
       ${target}
       PRIVATE
-        $<$<CONFIG:Release,MinSizeRel>:-Wl,-dead_strip,-S,-x>
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,-dead_strip>
     )
   elseif(NOT WIN32)
     target_link_options(
       ${target}
       PRIVATE
-        $<$<CONFIG:Release,MinSizeRel>:-Wl,--gc-sections,--strip-all>
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,--gc-sections>
+    )
+  endif()
+endfunction()
+
+# Removes the symbols that aren't exported from release builds.
+function(_prelude_strip target)
+  if(APPLE)
+    target_link_options(
+      ${target}
+      PRIVATE
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,-S,-x>
+    )
+  elseif(NOT WIN32)
+    target_link_options(
+      ${target}
+      PRIVATE
+        $<$<CONFIG:Release,MinSizeRel>:-Wl,--strip-all>
     )
   endif()
 endfunction()

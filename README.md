@@ -44,7 +44,7 @@ Entries of the form `<package>::<TYPE>` link `<package>::static` or `<package>::
 
 `EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library. Its `INTERFACE_EXPORTED_SYMBOLS` property lists the symbols, including those of other `::exports` targets it links, so `$<TARGET_PROPERTY:<name>::exports,INTERFACE_EXPORTED_SYMBOLS>` gives every symbol it exports. The list is only complete in generator expressions, such as with `file(GENERATE)`.
 
-If `STRIP` is on, release builds of the shared library remove unused code and strip symbols that aren't exported. It's off by default, so that the symbols stay available to debuggers and crash reporters.
+Release builds of the shared library remove code that no exported symbol reaches. If `STRIP` is on, they also strip symbols that aren't exported. It's off by default, so that the symbols stay available to debuggers and crash reporters.
 
 To add a dependency after the call, such as one for a single platform, link it to `<name>_headers` with `target_link_libraries(<name>_headers INTERFACE ...)`, which reaches every target in the same way. Linking it to `<name>` instead would not reach the static and shared library.
 
@@ -64,7 +64,7 @@ Creates `<name>_executable`, aliased as `<name>::executable`, with the output na
 
 `EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the executable exports, such as those used by native addons it loads at runtime. Other symbols are not exported.
 
-Unless `STRIP` is off, release builds remove unused code and strip symbols that aren't exported.
+Release builds remove unused code. Unless `STRIP` is off, they also strip symbols that aren't exported.
 
 `RPATH` lists where to look for shared libraries at runtime, relative to the installed executable. It defaults to the library directory.
 
