@@ -749,6 +749,8 @@ function(_prelude_add_exports_target name)
   set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
 
   if(WIN32)
+    set(library "$<OR:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,SHARED_LIBRARY>,$<STREQUAL:$<TARGET_PROPERTY:TYPE>,MODULE_LIBRARY>>")
+
     set(options ${symbols})
 
     list(TRANSFORM options PREPEND "/EXPORT:")
@@ -760,11 +762,13 @@ function(_prelude_add_exports_target name)
 
     # CMake only applies module definition files to executables that have
     # ENABLE_EXPORTS, so executables are given the exports as linker options
-    # instead, read from a response file to keep the command line short.
+    # instead, read from a response file to keep the command line short. Object
+    # libraries reject module definition files, so only libraries that link get
+    # one.
     target_sources(
       ${target}
       INTERFACE
-        "$<$<NOT:${executable}>:${file}.def>"
+        "$<${library}:${file}.def>"
     )
 
     target_link_options(
