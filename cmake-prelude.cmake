@@ -735,6 +735,15 @@ function(_prelude_add_exports_target name)
 
   add_library(${name}::exports ALIAS ${target})
 
+  # The symbols add up along the link chain, so that a consumer can read every
+  # symbol it exports, such as to embed them in an object of its own.
+  set_target_properties(
+    ${target}
+    PROPERTIES
+    INTERFACE_EXPORTED_SYMBOLS "${symbols}"
+    TRANSITIVE_LINK_PROPERTIES EXPORTED_SYMBOLS
+  )
+
   set(file "${CMAKE_CURRENT_BINARY_DIR}/${name}")
 
   set(executable "$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>")
