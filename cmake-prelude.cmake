@@ -16,11 +16,14 @@ function(add_library_targets name)
     LINK
     TYPE
     EXPORTS
+    DEPENDENCIES
   )
 
   cmake_parse_arguments(
     PARSE_ARGV 1 ARGV "" "${one_value_keywords}" "${multi_value_keywords}"
   )
+
+  _prelude_parse_dependencies(dependencies ${ARGV_DEPENDENCIES})
 
   if(ARGV_SOURCES STREQUAL "NONE")
     set(header_only ON)
@@ -270,6 +273,8 @@ function(add_library_targets name)
       )
 
       if(ARGV_EXPORT)
+        set_property(GLOBAL APPEND PROPERTY _prelude_${name}_explicit_dependencies ${dependencies})
+
         _prelude_add_to_package(${name} ${packages})
       endif()
     endif()
@@ -453,6 +458,8 @@ function(add_library_targets name)
   endif()
 
   set_property(GLOBAL PROPERTY _prelude_${name}_libraries ON)
+
+  set_property(GLOBAL APPEND PROPERTY _prelude_${name}_explicit_dependencies ${dependencies})
 
   _prelude_add_to_package(${name} ${packages})
 endfunction()
@@ -901,6 +908,28 @@ function(_prelude_export_symbols target)
   endif()
 endfunction()
 
+# Pairs each package with the version that follows it, if any, as a single
+# "<package> <version>" entry.
+function(_prelude_parse_dependencies result)
+  set(dependencies)
+
+  foreach(argument IN LISTS ARGN)
+    if(argument MATCHES "^[0-9]+(\\.[0-9]+)*$")
+      list(POP_BACK dependencies dependency)
+
+      if(NOT dependency OR dependency MATCHES " ")
+        message(FATAL_ERROR "Version ${argument} must follow a package in DEPENDENCIES")
+      endif()
+
+      list(APPEND dependencies "${dependency} ${argument}")
+    else()
+      list(APPEND dependencies "${argument}")
+    endif()
+  endforeach()
+
+  set(${result} ${dependencies} PARENT_SCOPE)
+endfunction()
+
 function(_prelude_add_to_package package)
   set_property(GLOBAL APPEND PROPERTY _prelude_${package}_dependencies ${ARGN})
 
@@ -936,13 +965,21 @@ function(_prelude_install_package package)
 
   list(REMOVE_DUPLICATES dependencies)
 
+  get_property(explicit_dependencies GLOBAL PROPERTY _prelude_${package}_explicit_dependencies)
+
+  list(REMOVE_DUPLICATES explicit_dependencies)
+
   set(config)
 
-  if(dependencies)
+  if(dependencies OR explicit_dependencies)
     string(APPEND config "include(CMakeFindDependencyMacro)\n\n")
 
     foreach(dependency IN LISTS dependencies)
       string(APPEND config "find_dependency(${dependency} $<TARGET_PROPERTY:${dependency}::headers,PACKAGE_VERSION>)\n")
+    endforeach()
+
+    foreach(dependency IN LISTS explicit_dependencies)
+      string(APPEND config "find_dependency(${dependency})\n")
     endforeach()
 
     string(APPEND config "\n")

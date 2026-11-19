@@ -10,7 +10,7 @@ find_package(cmake-prelude REQUIRED PATHS node_modules/cmake-prelude)
 
 ## API
 
-#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED...] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [INSTALL <bool>] [EXPORT <bool>])`
+#### `add_library_targets(<name> [HEADERS <files>...] [BASE_DIRS <dirs>...] [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [DEPENDENCIES <package> [<version>]...] [TYPE STATIC|SHARED...] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [INSTALL <bool>] [EXPORT <bool>])`
 
 Creates the targets of a library:
 
@@ -41,6 +41,8 @@ The scopes work like those of `target_link_libraries()`. `PUBLIC` entries for bo
 `EMBED` entries name targets whose objects are built into the libraries, such as object libraries, or static libraries that should not be installed alongside. The libraries are compiled with their compile settings and linked with their link dependencies, which the static library passes on to its consumers. The targets must exist when `add_library_targets()` is called, and don't become dependencies of the installed package.
 
 Entries of the form `<package>::<TYPE>` link `<package>::static` or `<package>::shared` to the matching library, and `<package>::headers` wherever headers are needed. Entries of the form `<package>::headers` are header-only dependencies. Use `$<COMPILE_ONLY:<target>>` for header-only dependencies that don't follow the `<package>::headers` convention. All entries that name a `<package>::` target become dependencies of the installed package, which requires a version of each dependency compatible with the one it was built against.
+
+`DEPENDENCIES` lists other packages that the installed package finds, each optionally followed by the version to request. Use it for linked targets that don't follow the `<package>::` convention but are exported by a package of their own, such as `uv_a` from `libuv`, which is passed as `DEPENDENCIES libuv 1`.
 
 `EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library. Its `INTERFACE_EXPORTED_SYMBOLS` property lists the symbols, including those of other `::exports` targets it links, so `$<TARGET_PROPERTY:<name>::exports,INTERFACE_EXPORTED_SYMBOLS>` gives every symbol it exports. The list is only complete in generator expressions, such as with `file(GENERATE)`.
 
