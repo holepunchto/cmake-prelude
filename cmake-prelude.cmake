@@ -470,6 +470,7 @@ function(add_executable_target name)
 
   set(multi_value_keywords
     SOURCES
+    FEATURES
     LINK
     EXPORTS
     RPATH
@@ -557,6 +558,12 @@ function(add_executable_target name)
     ${target}
     PRIVATE
       ${ARGV_SOURCES}
+  )
+
+  target_compile_features(
+    ${target}
+    PRIVATE
+      ${ARGV_FEATURES}
   )
 
   target_link_libraries(
