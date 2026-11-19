@@ -54,11 +54,13 @@ For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then cr
 
 The shared library compiles the same sources as `<name>` and follows its compile definitions, compile options, include directories, and compile features, including those added after the call. Configure compilation on `<name>` with the usual `target_*()` commands, such as `harden(<name>)` from `cmake-harden`. Other target properties are not followed; use `FEATURES` to require a language standard.
 
-#### `add_executable_target(<name> [SOURCES <files>...] [LINK <libraries>...] [TYPE STATIC|SHARED] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [RPATH <paths>...] [INSTALL <bool>] [EXPORT <bool>] [DESTINATION <dir>] [OUTPUT_DIRECTORY <dir>])`
+#### `add_executable_target(<name> [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [RPATH <paths>...] [INSTALL <bool>] [EXPORT <bool>] [DESTINATION <dir>] [OUTPUT_DIRECTORY <dir>])`
 
 Creates `<name>_executable`, aliased as `<name>::executable`, with the output name `<name>`.
 
 `OUTPUT_DIRECTORY` sets where the executable is built, along with its import library if it has exports, relative to the current build directory. Ninja names a build target after every target, so an executable built in the same directory as a target named `<name>`, such as the object library of `add_library_targets(<name>)`, collides with it. Build the executable in another directory, such as `bin`, or create it from a subdirectory.
+
+`FEATURES` lists the compile features the executable requires, such as `cxx_std_20`.
 
 `LINK` entries of the form `<package>::<TYPE>` link `<package>::static`, or `<package>::shared` if `TYPE` is `SHARED`.
 
