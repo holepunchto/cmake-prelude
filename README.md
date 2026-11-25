@@ -52,6 +52,8 @@ To add a dependency after the call, such as one for a single platform, link it t
 
 Unless `INSTALL` is off, the libraries and headers are installed, and unless `EXPORT` is also off, added to the `<name>` package. They are installed once the calling directory has been processed, so properties that change what gets installed, such as `ENABLE_EXPORTS`, can still be set after the call.
 
+The package can also be found with `find_package(<name>)` in the build tree when the project is added to another one, such as with `FetchContent` or `fetch_package()` from `cmake-fetch`. Its version is checked the same way as that of the installed package. This lets an installed package that depends on it, such as a prebuild, use the one built from source.
+
 For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then created, which `<name>` also refers to. `TYPE`, `EXPORTS`, `EXPORTS_FROM`, `STRIP`, the `STATIC`, `SHARED`, `PRIVATE`, and `EMBED` keywords of `LINK`, and `<package>::<TYPE>` entries can't be used with it.
 
 The shared library compiles the same sources as `<name>` and follows its compile definitions, compile options, include directories, and compile features, including those added after the call. Configure compilation on `<name>` with the usual `target_*()` commands, such as `harden(<name>)` from `cmake-harden`. Other target properties are not followed; use `FEATURES` to require a language standard.
