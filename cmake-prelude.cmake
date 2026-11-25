@@ -1001,10 +1001,7 @@ function(_prelude_install_package package)
     set(libraries OFF)
   endif()
 
-  file(
-    CONFIGURE
-    OUTPUT ${package}-config-version.cmake
-    CONTENT [=[
+  set(version [=[
 set(PACKAGE_VERSION "@PROJECT_VERSION@")
 
 if(PACKAGE_FIND_VERSION STREQUAL "")
@@ -1064,7 +1061,26 @@ endif()
 if(@libraries@ AND NOT CMAKE_SIZEOF_VOID_P STREQUAL "" AND NOT CMAKE_SIZEOF_VOID_P STREQUAL "@CMAKE_SIZEOF_VOID_P@")
   set(PACKAGE_VERSION_UNSUITABLE TRUE)
 endif()
-]=]
+]=])
+
+  file(
+    CONFIGURE
+    OUTPUT ${package}-config-version.cmake
+    CONTENT "${version}"
+    @ONLY
+  )
+
+  # Let find_package() find the package in the build tree when the project is
+  # added to another one, such as with FetchContent. The targets already exist,
+  # so the config file has nothing to do.
+  string(TOLOWER "${package}" name)
+
+  file(WRITE "${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}/${name}-config.cmake" "")
+
+  file(
+    CONFIGURE
+    OUTPUT "${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}/${name}-config-version.cmake"
+    CONTENT "${version}"
     @ONLY
   )
 
