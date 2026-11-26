@@ -847,7 +847,7 @@ function(_prelude_add_exports_target name)
     target_link_options(
       ${target}
       INTERFACE
-        "LINKER:SHELL:\"@${file}.rsp\""
+        "@${file}.rsp"
         "$<${executable}:LINKER:SHELL:\"--dynamic-list=${file}.dynamic\">"
         "$<$<NOT:${executable}>:LINKER:SHELL:\"--version-script=${file}.map\">"
     )
@@ -917,7 +917,7 @@ function(_prelude_export_symbols target)
     target_link_options(
       ${target}
       PRIVATE
-        "LINKER:SHELL:\"@${file}.rsp\""
+        "@${file}.rsp"
         "LINKER:SHELL:\"--dynamic-list=${file}.dynamic\""
     )
   endif()
@@ -926,11 +926,12 @@ endfunction()
 # Writes a response file that marks each symbol as undefined, so that the
 # linker pulls the objects that define them out of static libraries. Unlike
 # the other platforms, ELF linkers don't do this for the symbols that a version
-# script or dynamic list names.
+# script or dynamic list names. The compiler expands the response file itself,
+# so it holds compiler options rather than linker options.
 function(_prelude_write_undefined_symbols file)
   set(options ${ARGN})
 
-  list(TRANSFORM options PREPEND "--undefined=")
+  list(TRANSFORM options PREPEND "-u ")
   list(JOIN options "\n" options)
 
   file(CONFIGURE OUTPUT "${file}" CONTENT "${options}\n" @ONLY)
