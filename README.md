@@ -44,7 +44,7 @@ Entries of the form `<package>::<TYPE>` link `<package>::static` or `<package>::
 
 `DEPENDENCIES` lists other packages that the installed package finds, each optionally followed by the version to request. Use it for linked targets that don't follow the `<package>::` convention but are exported by a package of their own, such as `uv_a` from `libuv`, which is passed as `DEPENDENCIES libuv 1`.
 
-`EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library. Its `INTERFACE_EXPORTED_SYMBOLS` property lists the symbols, including those of other `::exports` targets it links, so `$<TARGET_PROPERTY:<name>::exports,INTERFACE_EXPORTED_SYMBOLS>` gives every symbol it exports. The list is only complete in generator expressions, such as with `file(GENERATE)`.
+`EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the shared library exports. Other symbols are not exported, even those of embedded targets, and only symbols with default visibility can be exported. The objects that define the symbols are always linked in, even from static libraries that nothing else references. They also create `<name>_exports`, aliased as `<name>::exports`, which limits the exports of the executables and shared libraries that link it to the same symbols, such as those that embed the static library. Its `INTERFACE_EXPORTED_SYMBOLS` property lists the symbols, including those of other `::exports` targets it links, so `$<TARGET_PROPERTY:<name>::exports,INTERFACE_EXPORTED_SYMBOLS>` gives every symbol it exports. The list is only complete in generator expressions, such as with `file(GENERATE)`.
 
 Release builds of the shared library remove code that no exported symbol reaches. If `STRIP` is on, they also strip symbols that aren't exported. It's off by default, so that the symbols stay available to debuggers and crash reporters.
 
@@ -72,7 +72,7 @@ Creates `<name>_executable`, aliased as `<name>::executable`, with the output na
 
 `LINK` entries of the form `<package>::<TYPE>` link `<package>::static`, or `<package>::shared` if `TYPE` is `SHARED`.
 
-`EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the executable exports, such as those used by native addons it loads at runtime. Other symbols are not exported.
+`EXPORTS` and `EXPORTS_FROM`, a JSON array of strings or a file with one symbol per line, list the symbols the executable exports, such as those used by native addons it loads at runtime. Other symbols are not exported. The objects that define the symbols are always linked in, even from static libraries that nothing else references.
 
 Release builds remove unused code. Unless `STRIP` is off, they also strip symbols that aren't exported.
 

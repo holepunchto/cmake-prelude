@@ -820,21 +820,23 @@ function(_prelude_add_exports_target name)
         "$<${executable}:@${file}.rsp>"
     )
 
-    set(file "$<IF:${executable},${file}.rsp,${file}.def>")
+    set(files "${file}.def" "${file}.rsp")
   elseif(APPLE)
-    set(file "${file}.exp")
-
     list(TRANSFORM symbols PREPEND "_")
     list(JOIN symbols "\n" symbols)
 
-    file(CONFIGURE OUTPUT "${file}" CONTENT "${symbols}\n" @ONLY)
+    file(CONFIGURE OUTPUT "${file}.exp" CONTENT "${symbols}\n" @ONLY)
 
     target_link_options(
       ${target}
       INTERFACE
-        "-Wl,-exported_symbols_list,${file}"
+        "LINKER:SHELL:-exported_symbols_list \"${file}.exp\""
     )
+
+    set(files "${file}.exp")
   else()
+    _prelude_write_undefined_symbols("${file}.rsp" ${symbols})
+
     list(JOIN symbols ";\n    " symbols)
 
     # Shared libraries hide everything else with a version script, while
@@ -842,19 +844,21 @@ function(_prelude_add_exports_target name)
     file(CONFIGURE OUTPUT "${file}.map" CONTENT "{\n  global:\n    ${symbols};\n\n  local:\n    *;\n};\n" @ONLY)
     file(CONFIGURE OUTPUT "${file}.dynamic" CONTENT "{\n    ${symbols};\n};\n" @ONLY)
 
-    set(file "$<IF:${executable},${file}.dynamic,${file}.map>")
-
     target_link_options(
       ${target}
       INTERFACE
-        "$<IF:${executable},-Wl$<COMMA>--dynamic-list=,-Wl$<COMMA>--version-script=>${file}"
+        "LINKER:SHELL:\"@${file}.rsp\""
+        "$<${executable}:LINKER:SHELL:\"--dynamic-list=${file}.dynamic\">"
+        "$<$<NOT:${executable}>:LINKER:SHELL:\"--version-script=${file}.map\">"
     )
+
+    set(files "${file}.rsp" "${file}.map" "${file}.dynamic")
   endif()
 
   set_target_properties(
     ${target}
     PROPERTIES
-    INTERFACE_LINK_DEPENDS "${file}"
+    INTERFACE_LINK_DEPENDS "${files}"
   )
 endfunction()
 
@@ -895,9 +899,11 @@ function(_prelude_export_symbols target)
     target_link_options(
       ${target}
       PRIVATE
-        "-Wl,-exported_symbols_list,${file}.exp"
+        "LINKER:SHELL:-exported_symbols_list \"${file}.exp\""
     )
   else()
+    _prelude_write_undefined_symbols("${file}.rsp" ${symbols})
+
     list(JOIN symbols ";\n  " symbols)
 
     file(CONFIGURE OUTPUT "${file}.dynamic" CONTENT "{\n  ${symbols};\n};\n" @ONLY)
@@ -905,15 +911,29 @@ function(_prelude_export_symbols target)
     set_target_properties(
       ${target}
       PROPERTIES
-      LINK_DEPENDS "${file}.dynamic"
+      LINK_DEPENDS "${file}.dynamic;${file}.rsp"
     )
 
     target_link_options(
       ${target}
       PRIVATE
-        "-Wl,--dynamic-list=${file}.dynamic"
+        "LINKER:SHELL:\"@${file}.rsp\""
+        "LINKER:SHELL:\"--dynamic-list=${file}.dynamic\""
     )
   endif()
+endfunction()
+
+# Writes a response file that marks each symbol as undefined, so that the
+# linker pulls the objects that define them out of static libraries. Unlike
+# the other platforms, ELF linkers don't do this for the symbols that a version
+# script or dynamic list names.
+function(_prelude_write_undefined_symbols file)
+  set(options ${ARGN})
+
+  list(TRANSFORM options PREPEND "--undefined=")
+  list(JOIN options "\n" options)
+
+  file(CONFIGURE OUTPUT "${file}" CONTENT "${options}\n" @ONLY)
 endfunction()
 
 # Pairs each package with the version that follows it, if any, as a single
