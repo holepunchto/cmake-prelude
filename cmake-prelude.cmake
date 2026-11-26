@@ -425,22 +425,8 @@ function(add_library_targets name)
     list(APPEND targets ${name}_shared)
   endif()
 
-  if(ARGV_EXPORTS_FROM)
-    _prelude_read_exports("${ARGV_EXPORTS_FROM}" symbols)
-
-    list(APPEND ARGV_EXPORTS ${symbols})
-  endif()
-
-  if(ARGV_EXPORTS)
-    _prelude_add_exports_target(${name} ${ARGV_EXPORTS})
-
-    if("shared" IN_LIST types)
-      target_link_libraries(
-        ${name}_shared
-        PRIVATE
-          ${name}_exports
-      )
-    endif()
+  if(ARGV_EXPORTS OR ARGV_EXPORTS_FROM)
+    add_library_exports(${name} EXPORTS ${ARGV_EXPORTS} EXPORTS_FROM ${ARGV_EXPORTS_FROM})
   endif()
 
   if(NOT ARGV_INSTALL)
@@ -462,6 +448,28 @@ function(add_library_targets name)
   set_property(GLOBAL APPEND PROPERTY _prelude_${name}_explicit_dependencies ${dependencies})
 
   _prelude_add_to_package(${name} ${packages})
+endfunction()
+
+function(add_library_exports name)
+  cmake_parse_arguments(
+    PARSE_ARGV 1 ARGV "" "EXPORTS_FROM" "EXPORTS"
+  )
+
+  if(ARGV_EXPORTS_FROM)
+    _prelude_read_exports("${ARGV_EXPORTS_FROM}" symbols)
+
+    list(APPEND ARGV_EXPORTS ${symbols})
+  endif()
+
+  _prelude_add_exports_target(${name} ${ARGV_EXPORTS})
+
+  if(TARGET ${name}_shared)
+    target_link_libraries(
+      ${name}_shared
+      PRIVATE
+        ${name}_exports
+    )
+  endif()
 endfunction()
 
 function(add_executable_target name)
