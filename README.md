@@ -58,6 +58,10 @@ For a header-only library, pass `SOURCES NONE`. Only `<name>_headers` is then cr
 
 The shared library compiles the same sources as `<name>` and follows its compile definitions, compile options, include directories, and compile features, including those added after the call. Configure compilation on `<name>` with the usual `target_*()` commands, such as `harden(<name>)` from `cmake-harden`. Other target properties are not followed; use `FEATURES` to require a language standard.
 
+#### `add_library_exports(<name> [EXPORTS <symbols>...] [EXPORTS_FROM <path>])`
+
+Creates `<name>_exports`, aliased as `<name>::exports`, for a library created by `add_library_targets()`, as if `EXPORTS` and `EXPORTS_FROM` had been passed to it. If the library has a shared library, its exports are limited to the symbols. Use it when the symbols are only known after the call, such as when another project provides them.
+
 #### `add_executable_target(<name> [SOURCES <files>...] [FEATURES <features>...] [LINK <libraries>...] [TYPE STATIC|SHARED] [EXPORTS <symbols>...] [EXPORTS_FROM <path>] [STRIP <bool>] [RPATH <paths>...] [INSTALL <bool>] [EXPORT <bool>] [DESTINATION <dir>] [OUTPUT_DIRECTORY <dir>])`
 
 Creates `<name>_executable`, aliased as `<name>::executable`, with the output name `<name>`.
