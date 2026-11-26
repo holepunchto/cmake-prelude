@@ -5,6 +5,11 @@
   "files": [
     "*.cmake"
   ],
+  "scripts": {
+    "format": "prettier --write . && lunte --fix",
+    "lint": "prettier --check . && lunte",
+    "test": "brittle-node test.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/holepunchto/cmake-prelude.git"
@@ -14,5 +19,12 @@
   "bugs": {
     "url": "https://github.com/holepunchto/cmake-prelude/issues"
   },
-  "homepage": "https://github.com/holepunchto/cmake-prelude#readme"
+  "homepage": "https://github.com/holepunchto/cmake-prelude#readme",
+  "devDependencies": {
+    "bare-make": "^2.1.2",
+    "brittle": "^3.7.0",
+    "lunte": "^1.8.0",
+    "prettier": "^3.3.3",
+    "prettier-config-holepunch": "^2.0.0"
+  }
 }
